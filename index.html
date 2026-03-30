@@ -147,6 +147,26 @@ const fbSet = (path, val) => db.ref(path).set(val);
 const fbUpdate = (path, val) => db.ref(path).update(val);
 const fbOn = (path, cb) => { const ref = db.ref(path); ref.on('value', s => cb(s.val())); return () => ref.off(); };
 
+/* ── Array normalizer (Firebase converts arrays to objects) ── */
+const toArr = v => v == null ? [] : Array.isArray(v) ? v : Object.values(v);
+const normalizeQuestion = q => ({
+  ...q,
+  options: q.options ? toArr(q.options) : undefined,
+  items:   q.items   ? toArr(q.items)   : undefined,
+  order:   q.order   ? toArr(q.order)   : undefined,
+});
+const normalizeChallenge = c => ({
+  ...c,
+  questions: toArr(c.questions).map(normalizeQuestion),
+});
+const normalizeAnswers = a => {
+  if (!a) return {};
+  const out = {};
+  Object.entries(a).forEach(([k, v]) => { out[k] = Array.isArray(v) ? v : (v && typeof v === 'object' ? toArr(v) : v); });
+  return out;
+};
+const normalizeSub = s => s ? { ...s, answers: normalizeAnswers(s.answers) } : s;
+
 /* ── Utils ── */
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const ytId = url => { const m = url?.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; };
@@ -181,7 +201,7 @@ function App() {
   const [players, setPlayers] = useState({});
   const [challenges, setChallenges] = useState([]);
   const [subs, setSubs] = useState({});
-  const [coachPin, setCoachPin] = useState("ACS1972");
+  const [coachPin, setCoachPin] = useState("COACH99");
   const [loading, setLoading] = useState(true);
 
   /* Live Firebase listeners */
@@ -189,8 +209,8 @@ function App() {
     const unsubs = [
       fbOn('config/coachPin', v => { if (v) setCoachPin(v); }),
       fbOn('players', v => setPlayers(v || {})),
-      fbOn('challenges', v => setChallenges(v ? Object.values(v) : [])),
-      fbOn('submissions', v => setSubs(v || {})),
+      fbOn('challenges', v => setChallenges(v ? Object.values(v).map(normalizeChallenge) : [])),
+      fbOn('submissions', v => { const s = v || {}; const norm = {}; Object.entries(s).forEach(([k,sub])=>{ norm[k]=normalizeSub(sub); }); setSubs(norm); }),
     ];
     setTimeout(() => setLoading(false), 800);
     return () => unsubs.forEach(u => u());
@@ -352,8 +372,7 @@ function CoachAuth({ ctx, onLogin }) {
               <label>Coach PIN</label>
               <input className="inp" type="password" placeholder="Enter coach PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(pin===ctx.coachPin?onLogin():setErr("Wrong PIN"))}/>
             </div>
-            <button className="btn btn-p btn-full mb12" onClick={()=>pin===ctx.coachPin?onLogin():setErr("Wrong PIN")}>ENTER COACH MODE</button>
-            <div className="tc xs mono dim"> — <span className="amber" style={{cursor:"pointer"}} onClick={()=>setChangingPin(true)}></span></div>
+            <button className="btn btn-p btn-full" onClick={()=>pin===ctx.coachPin?onLogin():setErr("Wrong PIN — default is COACH99")}>ENTER COACH MODE</button>
           </>
         ) : (
           <>
@@ -435,6 +454,7 @@ function ChallengeView({ ctx }) {
   const c = challenges.find(x=>x.id===cid);
   const subKey = `${cid}___${user?.username}`;
   const existing = subs[subKey];
+  const vid = c ? ytId(c.youtubeUrl) : null;
 
   const initAnswers = () => {
     const a = {};
@@ -442,12 +462,11 @@ function ChallengeView({ ctx }) {
     return existing?.answers||a;
   };
   const [answers, setAnswers] = useState(initAnswers);
-  const [phase, setPhase] = useState(existing?"results":"watch");
+  const [phase, setPhase] = useState(existing ? "results" : (vid ? "watch" : "answer"));
   const [myResult, setMyResult] = useState(existing||null);
   const [submitting, setSubmitting] = useState(false);
 
   if (!c) return <div className="wrap page dim">Challenge not found.</div>;
-  const vid = ytId(c.youtubeUrl);
   const isOpen = c.status==="open";
   const maxPts = calcMax(c.questions);
   const setAns = (qid,val) => setAnswers(prev=>({...prev,[qid]:val}));
@@ -475,9 +494,9 @@ function ChallengeView({ ctx }) {
           <span className="xs faint mono">{c.questions.length} questions · {maxPts} pts available</span>
         </div>
       </div>
-      {vid&&<div style={{position:"relative",paddingBottom:"56.25%",height:0,overflow:"hidden",borderRadius:4,marginBottom:16,border:"1px solid var(--border)"}}>
+      {vid ? <div style={{position:"relative",paddingBottom:"56.25%",height:0,overflow:"hidden",borderRadius:4,marginBottom:16,border:"1px solid var(--border)"}}>
         <iframe src={`https://www.youtube-nocookie.com/embed/${vid}`} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}} allowFullScreen title="Film Room"/>
-      </div>}
+      </div> : c.youtubeUrl ? <div className="alert a-err mb16">⚠ Could not load video — check the URL</div> : null}
       {phase==="watch"&&<div className="tc" style={{padding:"20px 0"}}>
         <p className="dim sm mb16">Watch the clip — study the situation, positioning, and what happens next.</p>
         <button className="btn btn-p" onClick={()=>setPhase("answer")}>I'VE WATCHED IT — LET'S GO →</button>
@@ -609,11 +628,29 @@ function Leaderboard({ ctx }) {
 
 /* ── Coach Home ── */
 function CoachHome({ ctx }) {
-  const { challenges, subs, players, nav } = ctx;
+  const { challenges, subs, players, nav, coachPin, savePin, saveChallenges } = ctx;
+  const [showPinForm, setShowPinForm] = useState(false);
+  const [oldPin, setOldPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [newPin2, setNewPin2] = useState("");
+  const [pinErr, setPinErr] = useState("");
+  const [pinOk, setPinOk] = useState("");
+
+  const handleChangePin = async () => {
+    setPinErr(""); setPinOk("");
+    if (oldPin !== coachPin) return setPinErr("Current PIN is wrong");
+    if (newPin.length < 4) return setPinErr("New PIN must be at least 4 characters");
+    if (newPin !== newPin2) return setPinErr("New PINs don't match");
+    await savePin(newPin);
+    setPinOk("PIN updated successfully!");
+    setOldPin(""); setNewPin(""); setNewPin2("");
+    setTimeout(() => { setShowPinForm(false); setPinOk(""); }, 2000);
+  };
+
   return (
     <div className="wrap page">
       <div className="row-sb mb20">
-        <div className="disp amber" style={{fontSize:30}}>COACH PANEL</div>
+        <div className="disp amber" style={{fontSize:30}}>COACHES OFFICE</div>
         <button className="btn btn-p btn-sm" onClick={()=>nav("coach-create")}>+ NEW CHALLENGE</button>
       </div>
       <div className="card mb20">
@@ -623,6 +660,27 @@ function CoachHome({ ctx }) {
           <div className="stat-cell"><div className="stat-val">{Object.keys(subs).length}</div><div className="stat-lbl">Submissions</div></div>
         </div>
       </div>
+      <div className="card mb20">
+        <div className="row-sb">
+          <div>
+            <div className="bold sm">Coach PIN</div>
+            <div className="xs dim mono mt4">Controls access to Coach Mode</div>
+          </div>
+          <button className="btn-g" onClick={()=>{setShowPinForm(p=>!p);setPinErr("");setPinOk("");}}>
+            {showPinForm ? "Cancel" : "🔑 Change PIN"}
+          </button>
+        </div>
+        {showPinForm && (
+          <div style={{marginTop:16,borderTop:"1px solid var(--border)",paddingTop:16}}>
+            {pinErr && <div className="alert a-err">{pinErr}</div>}
+            {pinOk && <div className="alert a-ok">{pinOk}</div>}
+            <div className="mb12"><label>Current PIN</label><input className="inp" type="password" placeholder="Enter current PIN" value={oldPin} onChange={e=>setOldPin(e.target.value)}/></div>
+            <div className="mb12"><label>New PIN</label><input className="inp" type="password" placeholder="Min 4 characters" value={newPin} onChange={e=>setNewPin(e.target.value)}/></div>
+            <div className="mb16"><label>Confirm New PIN</label><input className="inp" type="password" placeholder="Repeat new PIN" value={newPin2} onChange={e=>setNewPin2(e.target.value)}/></div>
+            <button className="btn btn-p btn-full" onClick={handleChangePin}>UPDATE PIN</button>
+          </div>
+        )}
+      </div>
       <div className="row-sb mb12">
         <div className="disp amber" style={{fontSize:20}}>CHALLENGES</div>
         <button className="btn-g" onClick={()=>nav("leaderboard")}>🏆 Leaderboard</button>
@@ -631,20 +689,32 @@ function CoachHome({ ctx }) {
       {[...challenges].reverse().map(c=>{
         const csubs = Object.values(subs).filter(s=>s.challengeId===c.id);
         const ungraded = csubs.filter(s=>!s.graded&&c.questions.some(q=>q.type==="sa")).length;
+        const isDraft = c.status==="draft";
         return (
-          <div key={c.id} className="card card-hover mb12" onClick={()=>nav("coach-detail",c.id)}>
-            <div className="row-sb">
-              <div>
-                <div className="bold mb4" style={{fontSize:15}}>{c.title}</div>
-                <div className="dim sm mb8">{c.situation}</div>
+          <div key={c.id} className="card mb12" style={{borderLeft: isDraft ? "3px solid var(--faint)" : "3px solid var(--aqua)"}}>
+            <div className="row-sb" style={{cursor: isDraft ? "default" : "pointer"}} onClick={()=>!isDraft&&nav("coach-detail",c.id)}>
+              <div style={{flex:1,marginRight:12}}>
+                <div className="bold mb4" style={{fontSize:15}}>{c.title||<em className="faint">Untitled draft</em>}</div>
+                <div className="dim sm mb8">{c.situation||<em className="faint">No situation set</em>}</div>
                 <div className="row-w gap-8">
                   <span className={`badge b-${c.status}`}>{c.status}</span>
-                  <span className="xs faint mono">{csubs.length}/{Object.keys(players).length} submitted</span>
+                  {!isDraft && <span className="xs faint mono">{csubs.length}/{Object.keys(players).length} submitted</span>}
+                  {isDraft && <span className="xs faint mono">{c.questions.length} questions</span>}
                   {ungraded>0&&<span className="badge" style={{background:"rgba(11,122,110,0.1)",color:"var(--aqua)",border:"1px solid rgba(11,122,110,0.3)"}}>⚡ {ungraded} to grade</span>}
                 </div>
               </div>
-              <span className="amber">→</span>
+              {!isDraft && <span className="amber" style={{marginLeft:8}}>→</span>}
             </div>
+            {isDraft && (
+              <div className="row gap-8" style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+                <button className="btn btn-p btn-sm" onClick={()=>nav("coach-create",c.id)}>✏ Edit Draft</button>
+                <button className="btn btn-d btn-sm" onClick={()=>{
+                  if(window.confirm("Delete this draft? This cannot be undone.")) {
+                    saveChallenges(challenges.filter(x=>x.id!==c.id));
+                  }
+                }}>🗑 Delete</button>
+              </div>
+            )}
           </div>
         );
       })}
@@ -715,7 +785,7 @@ function CoachCreate({ ctx }) {
   };
 
   const handleSave = async (status="draft") => {
-    if (!title.trim()||!url.trim()) return setErr("Title and YouTube URL required");
+    if (!title.trim()) return setErr("Title is required");
     if (status!=="draft"&&questions.length===0) return setErr("Add at least one question before publishing");
     setSaving(true);
     const c = {id:existing?.id||uid(),title:title.trim(),youtubeUrl:url.trim(),situation:situation.trim(),questions,status,createdAt:existing?.createdAt||Date.now()};
@@ -736,10 +806,11 @@ function CoachCreate({ ctx }) {
         <div className="disp amber mb14" style={{fontSize:18}}>CLIP INFO</div>
         <div className="mb12"><label>Challenge Title</label><input className="inp" placeholder="e.g. Runner on 2nd — what's your first move?" value={title} onChange={e=>setTitle(e.target.value)}/></div>
         <div className="mb12">
-          <label>YouTube URL</label>
-          <input className="inp" placeholder="https://youtube.com/watch?v=..." value={url} onChange={e=>setUrl(e.target.value)}/>
+          <label>YouTube URL <span style={{color:"var(--faint)",fontWeight:400}}>(optional)</span></label>
+          <input className="inp" placeholder="https://youtube.com/watch?v=... (leave blank if no video)" value={url} onChange={e=>setUrl(e.target.value)}/>
           {url&&!vid&&<div className="red xs mt4 mono">⚠ Couldn't detect a valid YouTube video ID</div>}
           {vid&&<div className="green xs mt4 mono">✓ Valid YouTube link detected</div>}
+          {!url&&<div className="xs mt4 mono" style={{color:"var(--faint)"}}>No video — text-only challenge is fine</div>}
         </div>
         <div><label>Game Situation (context for players)</label><textarea className="txta" placeholder="e.g. Bottom 7th, tie game, runner on 1st, 1 out..." value={situation} onChange={e=>setSituation(e.target.value)} rows={3}/></div>
       </div>
