@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Baseball IQ Hub</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<!-- React + Babel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+<!-- ============================================================
+     STEP 1: PASTE YOUR FIREBASE CONFIG BELOW
+     Replace everything inside the firebaseConfig = { ... }
+     with the values from your Firebase console.
+     ============================================================ -->
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyACEjP8g8Zi2suddkensp8jLWw2OWJuYiI",
+    authDomain: "baseball-iq-hub.firebaseapp.com",
+    databaseURL: "https://baseball-iq-hub-default-rtdb.firebaseio.com",
+    projectId: "baseball-iq-hub",
+    storageBucket: "baseball-iq-hub.firebasestorage.app",
+    messagingSenderId: "1069031761043",
+    appId: "1:1069031761043:web:542d390ad9c025ca4d1966"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+</script>
+<!-- ============================================================
+     END OF CONFIG — do not edit anything below this line
+     ============================================================ -->
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{min-height:100%;background:#f0f4f3}
+body{font-family:'Barlow',sans-serif;color:#0f1a18}
+:root{
+  --bg:#f0f4f3;--bg2:#ffffff;--bg3:#e4ecea;--card:#ffffff;
+  --border:#cfdedd;--border2:#a8c4c0;
+  --aqua:#0b7a6e;--aqua2:#095f56;--aqua-lt:#e0f2ef;
+  --red:#c0392b;--green:#0b7a6e;--blue:#1a6fa8;
+  --text:#0f1a18;--dim:#4a6b67;--faint:#9ab8b4;
+  --black:#0a0f0e;--grey:#6b8380;--grey-lt:#e4ecea;
+  --mono:'IBM Plex Mono',monospace;--disp:'Bebas Neue',cursive;--body:'Barlow',sans-serif;
+}
+.app{min-height:100vh;background:var(--bg)}
+.wrap{max-width:780px;margin:0 auto;padding:0 16px}
+.page{padding:24px 0 72px;animation:fadeUp 0.3s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.hdr{background:var(--black);border-bottom:3px solid var(--aqua);padding:12px 0;position:sticky;top:0;z-index:100}
+.hdr-inner{display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:var(--disp);font-size:20px;color:#ffffff;letter-spacing:0.06em;cursor:pointer;line-height:1}
+.logo small{display:block;font-family:var(--mono);font-size:10px;color:var(--aqua);letter-spacing:0.15em;font-weight:400;margin-top:1px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.card-a{border-left:3px solid var(--aqua)}
+.card-g{border-left:3px solid var(--green)}
+.card-hover{cursor:pointer;transition:border-color 0.15s,transform 0.15s,box-shadow 0.15s}
+.card-hover:hover{border-color:var(--aqua);transform:translateY(-2px);box-shadow:0 4px 12px rgba(11,122,110,0.12)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:3px;cursor:pointer;font-family:var(--disp);letter-spacing:0.06em;transition:all 0.15s}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none!important}
+.btn-p{background:var(--aqua);color:#ffffff;padding:11px 22px;font-size:17px}
+.btn-p:hover:not(:disabled){background:var(--aqua2);transform:translateY(-1px)}
+.btn-s{background:transparent;color:var(--aqua);border:2px solid var(--aqua);padding:11px 22px;font-size:17px}
+.btn-s:hover:not(:disabled){background:var(--aqua-lt)}
+.btn-d{background:var(--red);color:#fff;padding:9px 18px;font-size:16px}
+.btn-d:hover:not(:disabled){background:#a93226}
+.btn-g{background:#ffffff;color:var(--grey);border:1px solid var(--border);padding:7px 14px;font-size:13px;font-family:var(--body);font-weight:600;letter-spacing:0;border-radius:3px;cursor:pointer;transition:all 0.15s}
+.btn-g:hover:not(:disabled){border-color:var(--aqua);color:var(--aqua)}
+.btn-sm{padding:6px 14px;font-size:14px}
+.btn-full{width:100%}
+.inp,.txta,.sel{width:100%;background:#ffffff;border:1px solid var(--border);border-radius:3px;padding:10px 12px;color:var(--text);font-family:var(--body);font-size:14px;outline:none;transition:border-color 0.15s}
+.inp:focus,.txta:focus,.sel:focus{border-color:var(--aqua);box-shadow:0 0 0 3px rgba(11,122,110,0.1)}
+.txta{resize:vertical;min-height:72px}
+label{display:block;font-size:11px;color:var(--grey);margin-bottom:4px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase}
+.badge{display:inline-block;padding:2px 7px;border-radius:2px;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600}
+.b-open{background:rgba(11,122,110,0.1);color:var(--aqua2);border:1px solid rgba(11,122,110,0.3)}
+.b-closed{background:rgba(192,57,43,0.1);color:var(--red);border:1px solid rgba(192,57,43,0.25)}
+.b-draft{background:var(--grey-lt);color:var(--grey);border:1px solid var(--border)}
+.b-done{background:rgba(11,122,110,0.08);color:var(--aqua);border:1px solid rgba(11,122,110,0.2)}
+.lb-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border)}
+.lb-row:last-child{border-bottom:none}
+.lb-rank{font-family:var(--disp);font-size:26px;color:var(--faint);min-width:34px}
+.lb-rank.g{color:#b8860b}.lb-rank.s{color:#708090}.lb-rank.b{color:#8b5a2b}
+.lb-name{flex:1;font-weight:600;font-size:15px;color:var(--black)}
+.lb-pts{font-family:var(--mono);font-size:17px;color:var(--aqua);font-weight:600}
+.lb-sub{font-size:12px;color:var(--grey)}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat-cell{text-align:center}
+.stat-val{font-family:var(--disp);font-size:40px;color:var(--aqua);line-height:1}
+.stat-lbl{font-family:var(--mono);font-size:10px;color:var(--grey);text-transform:uppercase;letter-spacing:0.1em;margin-top:2px}
+.qcard{background:#f8fbfa;border:1px solid var(--border);border-radius:4px;padding:16px;margin-bottom:10px}
+.qt-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--aqua);margin-bottom:7px}
+.qt-text{font-size:16px;font-weight:600;margin-bottom:13px;line-height:1.4;color:var(--black)}
+.mc-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:3px;cursor:pointer;margin-bottom:7px;transition:all 0.15s;font-size:14px;background:#fff}
+.mc-opt:hover{border-color:var(--aqua);background:var(--aqua-lt)}
+.mc-opt.sel{border-color:var(--aqua);background:var(--aqua-lt);border-width:2px}
+.mc-opt.cor{border-color:var(--green);background:rgba(11,122,110,0.08);cursor:default;border-width:2px}
+.mc-opt.wrg{border-color:var(--red);background:rgba(192,57,43,0.06);cursor:default}
+.mc-opt.nc{cursor:default}
+.mc-let{font-family:var(--mono);font-size:12px;color:var(--aqua);min-width:20px;font-weight:600}
+.rank-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:3px;margin-bottom:7px;background:#fff}
+.rank-num{font-family:var(--mono);font-size:12px;color:var(--faint);min-width:26px}
+.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:20px}
+.tab{padding:10px 18px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--grey);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s;text-transform:uppercase;letter-spacing:0.08em}
+.tab.on{color:var(--aqua);border-bottom-color:var(--aqua)}
+.alert{padding:11px 14px;border-radius:3px;font-size:13px;margin-bottom:14px}
+.a-err{background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.25);color:#9b2218}
+.a-ok{background:rgba(11,122,110,0.08);border:1px solid rgba(11,122,110,0.25);color:var(--aqua2)}
+.a-inf{background:rgba(26,111,168,0.08);border:1px solid rgba(26,111,168,0.2);color:#1a5a8a}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--aqua);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block}
+.qt-btn{padding:7px 14px;border:1px solid var(--border);border-radius:3px;cursor:pointer;font-size:12px;background:#fff;color:var(--grey);transition:all 0.15s;font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase}
+.qt-btn.on{border-color:var(--aqua);color:var(--aqua);background:var(--aqua-lt);border-width:2px}
+.landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 16px;text-align:center;background:var(--black)}
+.logo-big{font-family:var(--disp);font-size:clamp(52px,14vw,108px);color:#ffffff;line-height:0.92;letter-spacing:0.04em}
+.logo-tag{font-family:var(--mono);font-size:12px;color:var(--aqua);letter-spacing:0.3em;text-transform:uppercase;margin-top:10px}
+.row{display:flex;align-items:center}
+.row-sb{display:flex;align-items:center;justify-content:space-between}
+.row-w{display:flex;align-items:center;flex-wrap:wrap}
+.gap-8{gap:8px}.gap-12{gap:12px}
+.mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}.mt20{margin-top:20px}.mt24{margin-top:24px}
+.mb4{margin-bottom:4px}.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}.mb14{margin-bottom:14px}.mb16{margin-bottom:16px}.mb20{margin-bottom:20px}
+.tc{text-align:center}
+.mono{font-family:var(--mono)}.disp{font-family:var(--disp)}.dim{color:var(--dim)}.faint{color:var(--faint)}
+.amber{color:var(--aqua)}.green{color:var(--green)}.red{color:var(--red)}
+.sm{font-size:13px}.xs{font-size:11px}.bold{font-weight:700}.w100{width:100%}
+.divider{height:1px;background:var(--border);margin:18px 0}
+@media(max-width:560px){.stat-grid{grid-template-columns:repeat(2,1fr)}.logo-big{font-size:clamp(44px,16vw,72px)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ── Firebase helpers ── */
+const fbGet = path => db.ref(path).once('value').then(s => s.val());
+const fbSet = (path, val) => db.ref(path).set(val);
+const fbUpdate = (path, val) => db.ref(path).update(val);
+const fbOn = (path, cb) => { const ref = db.ref(path); ref.on('value', s => cb(s.val())); return () => ref.off(); };
+
+/* ── Utils ── */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const ytId = url => { const m = url?.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/); return m ? m[1] : null; };
+const AL = ["A","B","C","D","E","F"];
+
+const calcScore = (questions, answers) => questions.reduce((sum, q) => {
+  const a = answers?.[q.id];
+  if (q.type === "mc" && a != null && Number(a) === q.correct) return sum + (q.pts || 10);
+  if (q.type === "rank" && Array.isArray(a)) {
+    const hits = a.filter((v, i) => v === q.order[i]).length;
+    return sum + Math.round((q.pts || 10) * hits / q.order.length);
+  }
+  if (q.type === "poll" && a != null) return sum + 5;
+  return sum;
+}, 0);
+
+const calcMax = qs => qs.reduce((s, q) => {
+  if (q.type === "mc") return s + (q.pts || 10);
+  if (q.type === "rank") return s + (q.pts || 10);
+  if (q.type === "poll") return s + 5;
+  if (q.type === "sa") return s + (q.maxPts || 10);
+  return s;
+}, 0);
+
+/* ══════════════════════════════════════
+   ROOT APP
+══════════════════════════════════════ */
+function App() {
+  const [screen, setScreen] = useState("landing");
+  const [cid, setCid] = useState(null);
+  const [user, setUser] = useState(null);
+  const [players, setPlayers] = useState({});
+  const [challenges, setChallenges] = useState([]);
+  const [subs, setSubs] = useState({});
+  const [coachPin, setCoachPin] = useState("COACH99");
+  const [loading, setLoading] = useState(true);
+
+  /* Live Firebase listeners */
+  useEffect(() => {
+    const unsubs = [
+      fbOn('config/coachPin', v => { if (v) setCoachPin(v); }),
+      fbOn('players', v => setPlayers(v || {})),
+      fbOn('challenges', v => setChallenges(v ? Object.values(v) : [])),
+      fbOn('submissions', v => setSubs(v || {})),
+    ];
+    setTimeout(() => setLoading(false), 800);
+    return () => unsubs.forEach(u => u());
+  }, []);
+
+  const savePlayers = async (v) => { await fbSet('players', v); };
+  const saveChallenges = async (arr) => {
+    const obj = {};
+    arr.forEach(c => { obj[c.id] = c; });
+    await fbSet('challenges', obj);
+  };
+  const saveSubs = async (v) => { await fbSet('submissions', v); };
+  const savePin = async (v) => { await fbSet('config/coachPin', v); };
+
+  const nav = (s, id = null) => { setScreen(s); setCid(id); window.scrollTo(0, 0); };
+  const logout = () => { setUser(null); nav("landing"); };
+
+  const ctx = { user, players, challenges, subs, coachPin, cid, savePlayers, saveChallenges, saveSubs, savePin, nav, logout };
+
+  if (loading) return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0a0f0e",color:"#0b7a6e",fontFamily:"monospace",fontSize:14,letterSpacing:"0.2em",flexDirection:"column",gap:16}}>
+      <div style={{width:32,height:32,border:"3px solid #1a2e2a",borderTopColor:"#0b7a6e",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+      LOADING FILM ROOM...
+    </div>
+  );
+
+  const screens = {
+    landing: <Landing onNav={nav} />,
+    "player-auth": <PlayerAuth ctx={ctx} onLogin={u => { setUser(u); nav("player-home"); }} />,
+    "coach-auth": <CoachAuth ctx={ctx} onLogin={() => { setUser({ username: "Coach", isCoach: true }); nav("coach-home"); }} />,
+    "player-home": <PlayerHome ctx={ctx} />,
+    challenge: <ChallengeView ctx={ctx} />,
+    leaderboard: <Leaderboard ctx={ctx} />,
+    "coach-home": <CoachHome ctx={ctx} />,
+    "coach-create": <CoachCreate ctx={ctx} />,
+    "coach-detail": <CoachDetail ctx={ctx} />,
+  };
+
+  return (
+    <div className="app">
+      {screen !== "landing" && <Header user={user} onLogout={logout} onNav={nav} />}
+      {screens[screen] || <div className="wrap page">Screen not found</div>}
+    </div>
+  );
+}
+
+/* ── Header ── */
+function Header({ user, onLogout, onNav }) {
+  return (
+    <div className="hdr">
+      <div className="wrap hdr-inner">
+        <div className="logo" onClick={() => onNav(user?.isCoach ? "coach-home" : "player-home")}>
+          Baseball IQ Hub
+          <small>{user?.isCoach ? "⚡ COACH MODE" : `@${user?.username}`}</small>
+        </div>
+        <div className="row gap-8">
+          {!user?.isCoach && <button className="btn-g" onClick={() => onNav("leaderboard")}>🏆 Board</button>}
+          <button className="btn-g" onClick={onLogout}>Exit</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Landing ── */
+function Landing({ onNav }) {
+  return (
+    <div className="landing">
+      <div style={{fontSize:56,marginBottom:8}}>⚾</div>
+      <div className="logo-big">Baseball<br/>IQ Hub</div>
+      <div className="logo-tag">Film Room · Game Situations · Competition</div>
+      <div style={{marginTop:48,display:"flex",flexDirection:"column",gap:12,width:"100%",maxWidth:320}}>
+        <button className="btn btn-p btn-full" onClick={() => onNav("player-auth")}>I'M A PLAYER</button>
+        <button className="btn btn-s btn-full" style={{borderColor:"#0b7a6e",color:"#0b7a6e"}} onClick={() => onNav("coach-auth")}>COACH ACCESS</button>
+      </div>
+      <p className="xs mt20 mono" style={{color:"#4a8a80"}}>Asynchronous · Gamified · Competitive</p>
+    </div>
+  );
+}
+
+/* ── Player Auth ── */
+function PlayerAuth({ ctx, onLogin }) {
+  const [mode, setMode] = useState("login");
+  const [name, setName] = useState("");
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const handle = async () => {
+    setErr(""); setBusy(true);
+    const uname = name.trim().toLowerCase().replace(/\s+/g,"_");
+    if (!uname) { setBusy(false); return setErr("Enter a username"); }
+    if (!/^\d{4}$/.test(pin)) { setBusy(false); return setErr("PIN must be exactly 4 digits"); }
+    try {
+      if (mode === "register") {
+        if (ctx.players[uname]) { setBusy(false); return setErr("Username taken — try another"); }
+        const np = {...ctx.players, [uname]:{displayName:name.trim(),pin,joined:Date.now()}};
+        await ctx.savePlayers(np);
+        onLogin({username:uname});
+      } else {
+        const p = ctx.players[uname];
+        if (!p) { setBusy(false); return setErr("Username not found"); }
+        if (p.pin !== pin) { setBusy(false); return setErr("Wrong PIN"); }
+        onLogin({username:uname});
+      }
+    } catch(e) { setBusy(false); setErr("Connection error — check your internet and try again"); }
+  };
+
+  return (
+    <div className="wrap page">
+      <div style={{maxWidth:380,margin:"0 auto"}}>
+        <div className="disp amber mb8" style={{fontSize:34}}>{mode==="login"?"SIGN IN":"CREATE ACCOUNT"}</div>
+        <p className="dim sm mb20">{mode==="login"?"Enter your credentials to access the film room.":"Choose a username and 4-digit PIN."}</p>
+        {err && <div className="alert a-err">{err}</div>}
+        <div className="mb12">
+          <label>Username</label>
+          <input className="inp" placeholder="e.g. jeter2" value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()}/>
+        </div>
+        <div className="mb20">
+          <label>4-Digit PIN</label>
+          <input className="inp" type="password" inputMode="numeric" placeholder="••••" maxLength={4} value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()}/>
+        </div>
+        <button className="btn btn-p btn-full" onClick={handle} disabled={busy}>{busy ? <span className="spin"/> : mode==="login"?"SIGN IN":"CREATE ACCOUNT"}</button>
+        <div className="tc mt16 sm dim">
+          {mode==="login"?"No account? ":"Have one? "}
+          <span className="amber" style={{cursor:"pointer"}} onClick={()=>{setMode(m=>m==="login"?"register":"login");setErr("");}}>
+            {mode==="login"?"Create one":"Sign in"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Coach Auth ── */
+function CoachAuth({ ctx, onLogin }) {
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  const [changingPin, setChangingPin] = useState(false);
+  const [newPin, setNewPin] = useState("");
+  const [newPin2, setNewPin2] = useState("");
+
+  const handleChangePin = async () => {
+    if (pin !== ctx.coachPin) return setErr("Wrong current PIN");
+    if (newPin !== newPin2) return setErr("PINs don't match");
+    if (newPin.length < 4) return setErr("PIN must be at least 4 characters");
+    await ctx.savePin(newPin);
+    setChangingPin(false); setErr(""); setPin(newPin); setNewPin(""); setNewPin2("");
+  };
+
+  return (
+    <div className="wrap page">
+      <div style={{maxWidth:380,margin:"0 auto"}}>
+        <div className="disp amber mb20" style={{fontSize:34}}>COACH ACCESS</div>
+        {err && <div className="alert a-err">{err}</div>}
+        {!changingPin ? (
+          <>
+            <div className="mb12">
+              <label>Coach PIN</label>
+              <input className="inp" type="password" placeholder="Enter coach PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(pin===ctx.coachPin?onLogin():setErr("Wrong PIN"))}/>
+            </div>
+            <button className="btn btn-p btn-full mb12" onClick={()=>pin===ctx.coachPin?onLogin():setErr("Wrong PIN — default is COACH99")}>ENTER COACH MODE</button>
+            <div className="tc xs mono dim">Default PIN: COACH99 — <span className="amber" style={{cursor:"pointer"}} onClick={()=>setChangingPin(true)}>change it</span></div>
+          </>
+        ) : (
+          <>
+            <div className="mb12"><label>Current PIN</label><input className="inp" type="password" placeholder="Current PIN" value={pin} onChange={e=>setPin(e.target.value)}/></div>
+            <div className="mb12"><label>New PIN</label><input className="inp" type="password" placeholder="New PIN" value={newPin} onChange={e=>setNewPin(e.target.value)}/></div>
+            <div className="mb16"><label>Confirm New PIN</label><input className="inp" type="password" placeholder="Confirm" value={newPin2} onChange={e=>setNewPin2(e.target.value)}/></div>
+            <div className="row gap-8">
+              <button className="btn-g" onClick={()=>{setChangingPin(false);setErr("");}}>Cancel</button>
+              <button className="btn btn-p" style={{flex:1}} onClick={handleChangePin}>UPDATE PIN</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Player Home ── */
+function PlayerHome({ ctx }) {
+  const { user, challenges, subs, nav } = ctx;
+  const subKey = cid => `${cid}___${user.username}`;
+  const hasDone = cid => !!subs[subKey(cid)];
+  const totalPts = challenges.reduce((sum,c)=>sum+(subs[subKey(c.id)]?.totalScore||0),0);
+  const completedCount = challenges.filter(c=>hasDone(c.id)).length;
+  const open = challenges.filter(c=>c.status==="open");
+  const closed = challenges.filter(c=>c.status==="closed");
+
+  return (
+    <div className="wrap page">
+      <div className="card mb16">
+        <div className="stat-grid">
+          <div className="stat-cell"><div className="stat-val">{totalPts}</div><div className="stat-lbl">Total Points</div></div>
+          <div className="stat-cell"><div className="stat-val">{completedCount}</div><div className="stat-lbl">Completed</div></div>
+          <div className="stat-cell"><div className="stat-val">{open.length}</div><div className="stat-lbl">Open Now</div></div>
+        </div>
+      </div>
+      <div className="row-sb mb12">
+        <div className="disp amber" style={{fontSize:22}}>FILM ROOM</div>
+        <button className="btn-g" onClick={()=>nav("leaderboard")}>🏆 Leaderboard</button>
+      </div>
+      {challenges.length===0&&<div className="card tc" style={{padding:48}}><div style={{fontSize:48,marginBottom:14}}>⚾</div><p className="dim">No challenges posted yet. Check back soon.</p></div>}
+      {open.length>0&&<>
+        <div className="xs mono dim mb8" style={{letterSpacing:"0.1em",textTransform:"uppercase"}}>Open Challenges</div>
+        {open.map(c=><ChallengeCard key={c.id} c={c} done={hasDone(c.id)} onClick={()=>nav("challenge",c.id)}/>)}
+      </>}
+      {closed.length>0&&<>
+        <div className="xs mono dim mb8 mt20" style={{letterSpacing:"0.1em",textTransform:"uppercase"}}>Review / Archived</div>
+        {closed.map(c=><ChallengeCard key={c.id} c={c} done={hasDone(c.id)} onClick={()=>{if(hasDone(c.id))nav("challenge",c.id);}} faded={!hasDone(c.id)}/>)}
+      </>}
+    </div>
+  );
+}
+
+function ChallengeCard({ c, done, onClick, faded }) {
+  return (
+    <div className={`card card-hover mb12 ${done?"card-a":""}`} style={{opacity:faded?0.5:1}} onClick={onClick}>
+      <div className="row-sb">
+        <div style={{flex:1,marginRight:12}}>
+          <div className="bold mb4" style={{fontSize:15}}>{c.title}</div>
+          <div className="dim sm mb8">{c.situation}</div>
+          <div className="row-w gap-8">
+            <span className={`badge b-${c.status}`}>{c.status}</span>
+            {done&&<span className="badge b-done">✓ Submitted</span>}
+            <span className="xs faint mono">{c.questions.length} questions</span>
+          </div>
+        </div>
+        <div className="tc">
+          <div className="disp amber" style={{fontSize:28}}>{calcMax(c.questions)}</div>
+          <div className="xs faint mono">pts avail</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Challenge View ── */
+function ChallengeView({ ctx }) {
+  const { user, challenges, subs, cid, saveSubs, nav } = ctx;
+  const c = challenges.find(x=>x.id===cid);
+  const subKey = `${cid}___${user?.username}`;
+  const existing = subs[subKey];
+
+  const initAnswers = () => {
+    const a = {};
+    if(c) c.questions.forEach(q=>{if(q.type==="rank")a[q.id]=q.items.map((_,i)=>i);});
+    return existing?.answers||a;
+  };
+  const [answers, setAnswers] = useState(initAnswers);
+  const [phase, setPhase] = useState(existing?"results":"watch");
+  const [myResult, setMyResult] = useState(existing||null);
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!c) return <div className="wrap page dim">Challenge not found.</div>;
+  const vid = ytId(c.youtubeUrl);
+  const isOpen = c.status==="open";
+  const maxPts = calcMax(c.questions);
+  const setAns = (qid,val) => setAnswers(prev=>({...prev,[qid]:val}));
+  const canSubmit = c.questions.filter(q=>q.type==="mc").every(q=>answers[q.id]!=null);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const auto = calcScore(c.questions,answers);
+    const sub = {username:user.username,challengeId:cid,answers,autoScore:auto,manualScore:0,totalScore:auto,submittedAt:Date.now(),graded:false};
+    const newSubs = {...subs,[subKey]:sub};
+    await saveSubs(newSubs);
+    setMyResult(sub);
+    setPhase("results");
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="wrap page">
+      <button className="btn-g mb16" onClick={()=>nav("player-home")}>← Back</button>
+      <div className="card card-a mb16">
+        <div className="disp amber mb4" style={{fontSize:22}}>{c.title}</div>
+        <div className="dim sm mb8">{c.situation}</div>
+        <div className="row-w gap-8">
+          <span className={`badge b-${isOpen?"open":"closed"}`}>{c.status}</span>
+          <span className="xs faint mono">{c.questions.length} questions · {maxPts} pts available</span>
+        </div>
+      </div>
+      {vid&&<div style={{position:"relative",paddingBottom:"56.25%",height:0,overflow:"hidden",borderRadius:4,marginBottom:16,border:"1px solid var(--border)"}}>
+        <iframe src={`https://www.youtube-nocookie.com/embed/${vid}`} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}} allowFullScreen title="Film Room"/>
+      </div>}
+      {phase==="watch"&&<div className="tc" style={{padding:"20px 0"}}>
+        <p className="dim sm mb16">Watch the clip — study the situation, positioning, and what happens next.</p>
+        <button className="btn btn-p" onClick={()=>setPhase("answer")}>I'VE WATCHED IT — LET'S GO →</button>
+      </div>}
+      {phase==="answer"&&isOpen&&<>
+        <div className="disp amber mb16" style={{fontSize:22}}>YOUR READS</div>
+        {c.questions.map((q,i)=><QInput key={q.id} q={q} i={i} answer={answers[q.id]} setAnswer={v=>setAns(q.id,v)}/>)}
+        {!canSubmit&&<p className="dim xs mono mb8 tc">Answer all multiple choice questions to submit.</p>}
+        <button className="btn btn-p btn-full mt8" onClick={handleSubmit} disabled={!canSubmit||submitting}>
+          {submitting?<><span className="spin"/> SAVING...</>:"SUBMIT — LOCK IT IN"}
+        </button>
+        <p className="tc xs faint mt8">You can only submit once.</p>
+      </>}
+      {phase==="answer"&&!isOpen&&<div className="alert a-err">This challenge is closed.</div>}
+      {phase==="results"&&myResult&&<ResultsView c={c} sub={myResult} revealed={c.status==="closed"}/>}
+    </div>
+  );
+}
+
+const TYPE_LABELS = {mc:"Multiple Choice",sa:"Short Answer",rank:"Ranking",poll:"Quick Poll"};
+
+function QInput({ q, i, answer, setAnswer }) {
+  const [rankOrder,setRankOrder] = useState(Array.isArray(answer)?answer:q.items?.map((_,i)=>i)||[]);
+  const moveItem = (pos,dir) => {
+    const next=[...rankOrder]; const t=pos+dir;
+    if(t<0||t>=next.length)return;
+    [next[pos],next[t]]=[next[t],next[pos]];
+    setRankOrder(next); setAnswer(next);
+  };
+  return (
+    <div className="qcard">
+      <div className="qt-label">{TYPE_LABELS[q.type]} · Q{i+1}</div>
+      <div className="qt-text">{q.text}</div>
+      {q.type==="mc"&&q.options.map((opt,oi)=>(
+        <div key={oi} className={`mc-opt ${answer==oi?"sel":""}`} onClick={()=>setAnswer(oi)}>
+          <span className="mc-let">{AL[oi]}</span><span>{opt}</span>
+        </div>
+      ))}
+      {q.type==="sa"&&<><textarea className="txta" placeholder="Explain your reasoning..." value={answer||""} onChange={e=>setAnswer(e.target.value)} rows={4}/><div className="xs faint mono mt4">Max {q.maxPts||10} pts · Coach grades this</div></>}
+      {q.type==="rank"&&<><p className="dim sm mb8">Use ▲▼ to rank best → worst:</p>{rankOrder.map((itemIdx,pos)=>(
+        <div key={itemIdx} className="rank-item">
+          <span className="rank-num">#{pos+1}</span>
+          <span style={{flex:1,fontSize:14}}>{q.items[itemIdx]}</span>
+          <div style={{display:"flex",flexDirection:"column",gap:2}}>
+            <button className="btn-g" style={{padding:"1px 8px",fontSize:12}} onClick={()=>moveItem(pos,-1)} disabled={pos===0}>▲</button>
+            <button className="btn-g" style={{padding:"1px 8px",fontSize:12}} onClick={()=>moveItem(pos,1)} disabled={pos===rankOrder.length-1}>▼</button>
+          </div>
+        </div>
+      ))}</>}
+      {q.type==="poll"&&<><p className="dim sm mb8">No wrong answer — what would YOU do?</p>{q.options.map((opt,oi)=>(
+        <div key={oi} className={`mc-opt ${answer==oi?"sel":""}`} onClick={()=>setAnswer(oi)}>
+          <span className="mc-let">{AL[oi]}</span><span>{opt}</span>
+        </div>
+      ))}<div className="xs faint mono mt4">+5 pts for responding</div></>}
+    </div>
+  );
+}
+
+function ResultsView({ c, sub, revealed }) {
+  return (
+    <div>
+      <div className="card card-g mb16 tc">
+        <div className="disp green" style={{fontSize:56}}>{sub.totalScore}</div>
+        <div className="xs dim mono">POINTS EARNED</div>
+        {sub.graded&&sub.manualScore>0&&<div className="xs faint mt4">Includes {sub.manualScore} pts from coach</div>}
+      </div>
+      {revealed?(<>
+        <div className="disp amber mb12" style={{fontSize:20}}>COACH'S BREAKDOWN</div>
+        {c.questions.map((q,i)=><RevealedQ key={q.id} q={q} i={i} answer={sub.answers?.[q.id]}/>)}
+      </>):(
+        <div className="alert a-inf">⏳ Answers unlock when Coach closes the challenge. Check the leaderboard to see where you stack up!</div>
+      )}
+    </div>
+  );
+}
+
+function RevealedQ({ q, i, answer }) {
+  return (
+    <div className="qcard mb10">
+      <div className="qt-label">{TYPE_LABELS[q.type]} · Q{i+1}</div>
+      <div className="qt-text">{q.text}</div>
+      {q.type==="mc"&&<>
+        {q.options.map((opt,oi)=>{
+          const isAns=Number(answer)===oi,isCor=oi===q.correct;
+          return(<div key={oi} className={`mc-opt nc ${isAns&&isCor?"cor":isAns?"wrg":isCor?"cor":""}`}>
+            <span className="mc-let">{AL[oi]}</span><span style={{flex:1}}>{opt}</span>
+            {isCor&&<span className="xs green">✓ Correct</span>}
+            {isAns&&!isCor&&<span className="xs red">✗ Your pick</span>}
+          </div>);
+        })}
+        {q.explanation&&<div className="alert a-inf mt8"><strong>Coach's Note:</strong> {q.explanation}</div>}
+      </>}
+      {q.type==="sa"&&<><div className="dim sm mb4">Your answer:</div><div className="qcard" style={{padding:12,fontSize:14}}>{answer||<em className="faint">No answer</em>}</div>{q.rubric&&<div className="alert a-inf mt8"><strong>Rubric:</strong> {q.rubric}</div>}</>}
+      {q.type==="rank"&&<><div className="dim sm mb8">Correct order:</div>{q.order.map((itemIdx,pos)=><div key={pos} className="rank-item"><span className="rank-num">#{pos+1}</span><span style={{fontSize:14}}>{q.items[itemIdx]}</span></div>)}</>}
+      {q.type==="poll"&&<div className="dim sm">Your response: <strong>{q.options[answer]||"—"}</strong> · <span className="faint">Poll — no wrong answer</span></div>}
+    </div>
+  );
+}
+
+/* ── Leaderboard ── */
+function Leaderboard({ ctx }) {
+  const { players, challenges, subs, user, nav } = ctx;
+  const board = Object.entries(players).map(([uname,p])=>{
+    const pts = challenges.reduce((sum,c)=>sum+(subs[`${c.id}___${uname}`]?.totalScore||0),0);
+    const done = challenges.filter(c=>!!subs[`${c.id}___${uname}`]).length;
+    return {uname,name:p.displayName,pts,done};
+  }).sort((a,b)=>b.pts-a.pts);
+  const rc = i=>i===0?"g":i===1?"s":i===2?"b":"";
+  return (
+    <div className="wrap page">
+      <div className="row-sb mb20">
+        <div className="disp amber" style={{fontSize:34}}>LEADERBOARD</div>
+        <button className="btn-g" onClick={()=>nav(user?.isCoach?"coach-home":"player-home")}>← Back</button>
+      </div>
+      <div className="card">
+        {board.length===0&&<div className="tc dim" style={{padding:40}}>No players yet</div>}
+        {board.map((s,i)=>(
+          <div key={s.uname} className="lb-row" style={{background:s.uname===user?.username?"rgba(11,122,110,0.06)":""}}>
+            <div className={`lb-rank ${rc(i)}`}>{i+1}</div>
+            <div className="lb-name">{s.name}{s.uname===user?.username&&<span className="amber xs mono" style={{marginLeft:8}}>← you</span>}</div>
+            <div className="lb-sub">{s.done} done</div>
+            <div className="lb-pts">{s.pts}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Coach Home ── */
+function CoachHome({ ctx }) {
+  const { challenges, subs, players, nav } = ctx;
+  return (
+    <div className="wrap page">
+      <div className="row-sb mb20">
+        <div className="disp amber" style={{fontSize:30}}>COACH PANEL</div>
+        <button className="btn btn-p btn-sm" onClick={()=>nav("coach-create")}>+ NEW CHALLENGE</button>
+      </div>
+      <div className="card mb20">
+        <div className="stat-grid">
+          <div className="stat-cell"><div className="stat-val">{Object.keys(players).length}</div><div className="stat-lbl">Players</div></div>
+          <div className="stat-cell"><div className="stat-val">{challenges.filter(c=>c.status==="open").length}</div><div className="stat-lbl">Open</div></div>
+          <div className="stat-cell"><div className="stat-val">{Object.keys(subs).length}</div><div className="stat-lbl">Submissions</div></div>
+        </div>
+      </div>
+      <div className="row-sb mb12">
+        <div className="disp amber" style={{fontSize:20}}>CHALLENGES</div>
+        <button className="btn-g" onClick={()=>nav("leaderboard")}>🏆 Leaderboard</button>
+      </div>
+      {challenges.length===0&&<div className="card tc" style={{padding:48}}><div style={{fontSize:48,marginBottom:14}}>📹</div><p className="dim mb16">No challenges yet.</p><button className="btn btn-p" onClick={()=>nav("coach-create")}>CREATE FIRST CHALLENGE</button></div>}
+      {[...challenges].reverse().map(c=>{
+        const csubs = Object.values(subs).filter(s=>s.challengeId===c.id);
+        const ungraded = csubs.filter(s=>!s.graded&&c.questions.some(q=>q.type==="sa")).length;
+        return (
+          <div key={c.id} className="card card-hover mb12" onClick={()=>nav("coach-detail",c.id)}>
+            <div className="row-sb">
+              <div>
+                <div className="bold mb4" style={{fontSize:15}}>{c.title}</div>
+                <div className="dim sm mb8">{c.situation}</div>
+                <div className="row-w gap-8">
+                  <span className={`badge b-${c.status}`}>{c.status}</span>
+                  <span className="xs faint mono">{csubs.length}/{Object.keys(players).length} submitted</span>
+                  {ungraded>0&&<span className="badge" style={{background:"rgba(11,122,110,0.1)",color:"var(--aqua)",border:"1px solid rgba(11,122,110,0.3)"}}>⚡ {ungraded} to grade</span>}
+                </div>
+              </div>
+              <span className="amber">→</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Coach Create ── */
+function CoachCreate({ ctx }) {
+  const { challenges, saveChallenges, nav, cid } = ctx;
+  const existing = cid ? challenges.find(c=>c.id===cid) : null;
+  const [title,setTitle] = useState(existing?.title||"");
+  const [url,setUrl] = useState(existing?.youtubeUrl||"");
+  const [situation,setSituation] = useState(existing?.situation||"");
+  const [questions,setQuestions] = useState(existing?.questions||[]);
+  const [saving,setSaving] = useState(false);
+  const [aiLoading,setAiLoading] = useState(false);
+  const [aiErr,setAiErr] = useState("");
+  const [err,setErr] = useState("");
+  const [qType,setQType] = useState("mc");
+  const [qText,setQText] = useState("");
+  const [mcOpts,setMcOpts] = useState(["","","",""]);
+  const [mcCor,setMcCor] = useState(0);
+  const [mcPts,setMcPts] = useState(10);
+  const [mcExp,setMcExp] = useState("");
+  const [saRubric,setSaRubric] = useState("");
+  const [saMax,setSaMax] = useState(10);
+  const [rankItems,setRankItems] = useState(["","","",""]);
+  const [rankPts,setRankPts] = useState(10);
+  const [pollOpts,setPollOpts] = useState(["",""]);
+  const vid = ytId(url);
+
+  const resetQForm = () => { setQText(""); setMcOpts(["","","",""]); setMcCor(0); setMcExp(""); setSaRubric(""); setRankItems(["","","",""]); setPollOpts(["",""]); setErr(""); };
+
+  const addQ = () => {
+    if (!qText.trim()) return setErr("Question text required");
+    let q = {id:uid(),type:qType,text:qText.trim()};
+    if (qType==="mc") {
+      const opts=mcOpts.filter(o=>o.trim());
+      if(opts.length<2)return setErr("Need at least 2 options");
+      q={...q,options:opts,correct:Math.min(mcCor,opts.length-1),pts:mcPts,explanation:mcExp};
+    } else if (qType==="sa") {
+      q={...q,rubric:saRubric,maxPts:saMax};
+    } else if (qType==="rank") {
+      const items=rankItems.filter(i=>i.trim());
+      if(items.length<2)return setErr("Need at least 2 items");
+      q={...q,items,order:items.map((_,i)=>i),pts:rankPts};
+    } else if (qType==="poll") {
+      const opts=pollOpts.filter(o=>o.trim());
+      if(opts.length<2)return setErr("Need at least 2 options");
+      q={...q,options:opts};
+    }
+    setErr(""); setQuestions(prev=>[...prev,q]); resetQForm();
+  };
+
+  const getAI = async () => {
+    if (!situation.trim()) return setAiErr("Add a situation description first");
+    setAiLoading(true); setAiErr("");
+    try {
+      const prompt = `You are an experienced baseball coach creating baseball IQ challenge questions for high school players.\n\nSituation: "${situation}"${title?`\nClip title: "${title}"`:"" }\n\nGenerate 3 varied baseball situational awareness questions. Return ONLY a valid JSON array with no markdown:\n[\n  {"type":"mc","text":"Question about the correct defensive play","options":["Option A","Option B","Option C","Option D"],"correct":0,"pts":10,"explanation":"Why this is the right call"},\n  {"type":"sa","text":"Open-ended question about decision making","rubric":"Key points a strong answer should include","maxPts":10},\n  {"type":"poll","text":"If you were the [position], what would you do?","options":["Choice 1","Choice 2","Choice 3"]}\n]`;
+      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
+      const data = await res.json();
+      const text = (data.content?.[0]?.text||"").replace(/```json|```/g,"").trim();
+      const suggestions = JSON.parse(text);
+      setQuestions(prev=>[...prev,...suggestions.map(s=>({...s,id:uid()}))]);
+    } catch { setAiErr("AI suggestion failed — add questions manually."); }
+    setAiLoading(false);
+  };
+
+  const handleSave = async (status="draft") => {
+    if (!title.trim()||!url.trim()) return setErr("Title and YouTube URL required");
+    if (status!=="draft"&&questions.length===0) return setErr("Add at least one question before publishing");
+    setSaving(true);
+    const c = {id:existing?.id||uid(),title:title.trim(),youtubeUrl:url.trim(),situation:situation.trim(),questions,status,createdAt:existing?.createdAt||Date.now()};
+    const newCh = existing ? challenges.map(x=>x.id===c.id?c:x) : [...challenges,c];
+    await saveChallenges(newCh);
+    setSaving(false);
+    nav("coach-home");
+  };
+
+  return (
+    <div className="wrap page">
+      <div className="row-sb mb20">
+        <div className="disp amber" style={{fontSize:28}}>{existing?"EDIT CHALLENGE":"NEW CHALLENGE"}</div>
+        <button className="btn-g" onClick={()=>nav("coach-home")}>← Back</button>
+      </div>
+      {err&&<div className="alert a-err">{err}</div>}
+      <div className="card mb16">
+        <div className="disp amber mb14" style={{fontSize:18}}>CLIP INFO</div>
+        <div className="mb12"><label>Challenge Title</label><input className="inp" placeholder="e.g. Runner on 2nd — what's your first move?" value={title} onChange={e=>setTitle(e.target.value)}/></div>
+        <div className="mb12">
+          <label>YouTube URL</label>
+          <input className="inp" placeholder="https://youtube.com/watch?v=..." value={url} onChange={e=>setUrl(e.target.value)}/>
+          {url&&!vid&&<div className="red xs mt4 mono">⚠ Couldn't detect a valid YouTube video ID</div>}
+          {vid&&<div className="green xs mt4 mono">✓ Valid YouTube link detected</div>}
+        </div>
+        <div><label>Game Situation (context for players)</label><textarea className="txta" placeholder="e.g. Bottom 7th, tie game, runner on 1st, 1 out..." value={situation} onChange={e=>setSituation(e.target.value)} rows={3}/></div>
+      </div>
+      {vid&&<div style={{position:"relative",paddingBottom:"40%",height:0,overflow:"hidden",borderRadius:4,marginBottom:16,border:"1px solid var(--border)"}}>
+        <iframe src={`https://www.youtube-nocookie.com/embed/${vid}`} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}} allowFullScreen title="Preview"/>
+      </div>}
+      <div className="row-sb mb12">
+        <div className="disp amber" style={{fontSize:20}}>QUESTIONS ({questions.length})</div>
+        <button className="btn btn-s btn-sm" onClick={getAI} disabled={aiLoading}>{aiLoading?<><span className="spin"/> GENERATING...</>:"✨ AI SUGGEST"}</button>
+      </div>
+      {aiErr&&<div className="alert a-err mb12">{aiErr}</div>}
+      {questions.length===0&&<div className="card tc mb12" style={{padding:24}}><p className="dim sm">No questions yet — add below or hit AI Suggest.</p></div>}
+      {questions.map((q,i)=>(
+        <div key={q.id} className="qcard mb8">
+          <div className="row-sb mb4">
+            <div className="qt-label">{q.type.toUpperCase()} · Q{i+1}</div>
+            <button className="btn-g" style={{padding:"2px 10px",fontSize:11}} onClick={()=>setQuestions(prev=>prev.filter(x=>x.id!==q.id))}>✕</button>
+          </div>
+          <div style={{fontSize:14,marginBottom:4}}>{q.text}</div>
+          {q.type==="mc"&&<div className="xs faint mono">Correct: {AL[q.correct]} · {q.pts} pts</div>}
+          {q.type==="sa"&&<div className="xs faint mono">Manual grading · max {q.maxPts} pts</div>}
+          {q.type==="rank"&&<div className="xs faint mono">{q.items?.length} items · {q.pts} pts</div>}
+          {q.type==="poll"&&<div className="xs faint mono">Poll · 5 pts for answering</div>}
+        </div>
+      ))}
+      <div className="card mt20">
+        <div className="disp amber mb14" style={{fontSize:18}}>ADD QUESTION</div>
+        <div className="row-w gap-8 mb16">
+          {[["mc","Multiple Choice"],["sa","Short Answer"],["rank","Ranking"],["poll","Poll"]].map(([t,l])=>(
+            <button key={t} className={`qt-btn ${qType===t?"on":""}`} onClick={()=>setQType(t)}>{l}</button>
+          ))}
+        </div>
+        <div className="mb12"><label>Question Text</label><textarea className="txta" placeholder="Enter your question..." value={qText} onChange={e=>setQText(e.target.value)} rows={2}/></div>
+        {qType==="mc"&&<div>
+          {mcOpts.map((opt,i)=>(
+            <div key={i} style={{display:"flex",gap:8,marginBottom:7,alignItems:"center"}}>
+              <span className="mc-let" style={{lineHeight:"36px",minWidth:22}}>{AL[i]}</span>
+              <input className="inp" style={{flex:1}} placeholder={`Option ${AL[i]}`} value={opt} onChange={e=>{const o=[...mcOpts];o[i]=e.target.value;setMcOpts(o);}}/>
+              <input type="radio" checked={mcCor===i} onChange={()=>setMcCor(i)} title="Mark correct" style={{accentColor:"var(--aqua)",width:16,height:16,cursor:"pointer"}}/>
+            </div>
+          ))}
+          <div style={{maxWidth:160,marginTop:10}}><label>Points</label><input className="inp" type="number" value={mcPts} onChange={e=>setMcPts(Number(e.target.value))} min={1} max={100}/></div>
+          <div className="mt8"><label>Coaching Explanation (revealed after close)</label><textarea className="txta" placeholder="Why is this the right read?" value={mcExp} onChange={e=>setMcExp(e.target.value)} rows={2}/></div>
+        </div>}
+        {qType==="sa"&&<div>
+          <div className="mb8"><label>Grading Rubric</label><textarea className="txta" placeholder="What key points should a strong answer include?" value={saRubric} onChange={e=>setSaRubric(e.target.value)} rows={2}/></div>
+          <div style={{maxWidth:160}}><label>Max Points</label><input className="inp" type="number" value={saMax} onChange={e=>setSaMax(Number(e.target.value))} min={1} max={100}/></div>
+        </div>}
+        {qType==="rank"&&<div>
+          <label style={{marginBottom:8}}>Items to rank — enter in correct order (best → worst)</label>
+          {rankItems.map((item,i)=>(
+            <div key={i} style={{display:"flex",gap:8,marginBottom:6}}>
+              <span className="rank-num" style={{lineHeight:"36px",minWidth:26}}>#{i+1}</span>
+              <input className="inp" placeholder={`Item ${i+1}`} value={item} onChange={e=>{const it=[...rankItems];it[i]=e.target.value;setRankItems(it);}}/>
+            </div>
+          ))}
+          <div className="mt8" style={{maxWidth:160}}><label>Points</label><input className="inp" type="number" value={rankPts} onChange={e=>setRankPts(Number(e.target.value))} min={1} max={100}/></div>
+        </div>}
+        {qType==="poll"&&<div>
+          <label>Poll Options</label>
+          {pollOpts.map((opt,i)=>(
+            <div key={i} style={{display:"flex",gap:8,marginBottom:6}}>
+              <span className="mc-let" style={{lineHeight:"36px",minWidth:22}}>{AL[i]}</span>
+              <input className="inp" placeholder={`Option ${AL[i]}`} value={opt} onChange={e=>{const o=[...pollOpts];o[i]=e.target.value;setPollOpts(o);}}/>
+            </div>
+          ))}
+          <button className="btn-g mt8" style={{fontSize:12}} onClick={()=>setPollOpts(p=>[...p,""])}>+ Add Option</button>
+        </div>}
+        {err&&<div className="alert a-err mt12">{err}</div>}
+        <button className="btn btn-s btn-full mt16" onClick={addQ}>+ ADD THIS QUESTION</button>
+      </div>
+      <div style={{display:"flex",gap:12,marginTop:24,flexWrap:"wrap"}}>
+        <button className="btn-g" onClick={()=>handleSave("draft")} disabled={saving}>Save Draft</button>
+        <button className="btn btn-p" style={{flex:1}} onClick={()=>handleSave("open")} disabled={saving||questions.length===0}>
+          {saving?<><span className="spin"/> SAVING...</>:"🚀 PUBLISH CHALLENGE"}
+        </button>
+      </div>
+      {questions.length===0&&<p className="xs faint tc mt8">Add at least one question before publishing</p>}
+    </div>
+  );
+}
+
+/* ── Coach Detail ── */
+function CoachDetail({ ctx }) {
+  const { challenges, subs, players, saveChallenges, saveSubs, nav, cid } = ctx;
+  const c = challenges.find(x=>x.id===cid);
+  const [tab, setTab] = useState("subs");
+
+  if (!c) return <div className="wrap page dim">Challenge not found.</div>;
+
+  const csubs = Object.entries(subs).filter(([,s])=>s.challengeId===cid).map(([key,s])=>({key,...s}));
+  const saQs = c.questions.filter(q=>q.type==="sa");
+  const totalPlayers = Object.keys(players).length;
+
+  const toggleStatus = async () => {
+    const next = c.status==="open"?"closed":c.status==="closed"?"open":"open";
+    await saveChallenges(challenges.map(x=>x.id===cid?{...x,status:next}:x));
+  };
+
+  const gradeSA = async (subKey, qId, pts) => {
+    const sub = subs[subKey];
+    if (!sub) return;
+    const ms = {...(sub.manualScores||{}),[qId]:Number(pts)};
+    const manualScore = Object.values(ms).reduce((a,b)=>a+b,0);
+    const updated = {...sub,manualScores:ms,manualScore,totalScore:sub.autoScore+manualScore,graded:true};
+    await saveSubs({...subs,[subKey]:updated});
+  };
+
+  return (
+    <div className="wrap page">
+      <button className="btn-g mb16" onClick={()=>nav("coach-home")}>← Back</button>
+      <div className="card card-a mb16">
+        <div className="row-sb">
+          <div>
+            <div className="disp amber mb4" style={{fontSize:22}}>{c.title}</div>
+            <div className="dim sm">{c.situation}</div>
+          </div>
+          <span className={`badge b-${c.status}`}>{c.status}</span>
+        </div>
+      </div>
+      <div className="row-w gap-8 mb20">
+        <button className={`btn ${c.status==="open"?"btn-d":"btn-p"} btn-sm`} onClick={toggleStatus}>
+          {c.status==="open"?"🔒 Close + Reveal Answers":c.status==="closed"?"🔓 Reopen":"🚀 Open to Players"}
+        </button>
+        <span className="xs faint mono">{csubs.length}/{totalPlayers} submitted</span>
+      </div>
+      <div className="tabs">
+        {[["subs",`Submissions (${csubs.length})`],["scores","Scores"],["qbank","Questions"]].map(([t,l])=>(
+          <div key={t} className={`tab ${tab===t?"on":""}`} onClick={()=>setTab(t)}>{l}</div>
+        ))}
+      </div>
+      {tab==="subs"&&<div>
+        {csubs.length===0&&<div className="card tc" style={{padding:36}}><p className="dim">No submissions yet</p></div>}
+        {csubs.map(sub=>(
+          <div key={sub.key} className="card mb14">
+            <div className="row-sb mb12">
+              <div>
+                <div className="bold">{players[sub.username]?.displayName||sub.username}</div>
+                <div className="xs faint mono">{new Date(sub.submittedAt).toLocaleDateString()} · @{sub.username}</div>
+              </div>
+              <div className="tc">
+                <div className="disp amber" style={{fontSize:30}}>{sub.totalScore}</div>
+                <div className="xs faint mono">/{calcMax(c.questions)} pts</div>
+                {sub.graded&&<span className="badge b-done" style={{fontSize:9}}>graded</span>}
+              </div>
+            </div>
+            {saQs.map(q=>{
+              const answer = sub.answers?.[q.id];
+              const grade = sub.manualScores?.[q.id]??"";
+              return (
+                <div key={q.id} className="qcard mt8">
+                  <div className="qt-label">Short Answer · max {q.maxPts} pts</div>
+                  <div className="sm mb4 dim">{q.text}</div>
+                  <div className="card mb8" style={{padding:10,fontSize:13,lineHeight:1.5}}>{answer||<em className="faint">No answer</em>}</div>
+                  {q.rubric&&<div className="xs faint mb8">Rubric: {q.rubric}</div>}
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <label style={{margin:0,minWidth:"fit-content"}}>Grade:</label>
+                    <input className="inp" type="number" min={0} max={q.maxPts} value={grade} onChange={e=>gradeSA(sub.key,q.id,e.target.value)} style={{width:72}}/>
+                    <span className="dim sm">/ {q.maxPts}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>}
+      {tab==="scores"&&<div className="card">
+        {csubs.length===0&&<div className="tc dim" style={{padding:36}}>No submissions yet</div>}
+        {[...csubs].sort((a,b)=>b.totalScore-a.totalScore).map((sub,i)=>{
+          const rc=i===0?"g":i===1?"s":i===2?"b":"";
+          return(
+            <div key={sub.key} className="lb-row">
+              <div className={`lb-rank ${rc}`}>{i+1}</div>
+              <div className="lb-name">{players[sub.username]?.displayName||sub.username}</div>
+              {!sub.graded&&saQs.length>0&&<span className="xs amber mono">needs grading</span>}
+              <div className="lb-pts">{sub.totalScore}</div>
+            </div>
+          );
+        })}
+      </div>}
+      {tab==="qbank"&&<div>
+        {c.questions.map((q,i)=>(
+          <div key={q.id} className="qcard mb12">
+            <div className="qt-label">{q.type.toUpperCase()} · Q{i+1}</div>
+            <div className="qt-text">{q.text}</div>
+            {q.type==="mc"&&<>{q.options.map((opt,oi)=>(
+              <div key={oi} className={`mc-opt nc ${oi===q.correct?"cor":""}`}>
+                <span className="mc-let">{AL[oi]}</span><span style={{flex:1}}>{opt}</span>
+                {oi===q.correct&&<span className="xs green">✓ Correct</span>}
+              </div>
+            ))}{q.explanation&&<div className="alert a-inf mt8">{q.explanation}</div>}</>}
+            {q.type==="sa"&&<div className="dim sm">Rubric: {q.rubric||"—"} · Max {q.maxPts} pts</div>}
+            {q.type==="rank"&&<>{q.order.map((idx,pos)=>(
+              <div key={pos} className="rank-item"><span className="rank-num">#{pos+1}</span><span style={{fontSize:14}}>{q.items[idx]}</span></div>
+            ))}</>}
+            {q.type==="poll"&&<div className="dim sm">Options: {q.options.join(", ")}</div>}
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
