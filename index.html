@@ -353,7 +353,7 @@ function CoachAuth({ ctx, onLogin }) {
               <input className="inp" type="password" placeholder="Enter coach PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(pin===ctx.coachPin?onLogin():setErr("Wrong PIN"))}/>
             </div>
             <button className="btn btn-p btn-full mb12" onClick={()=>pin===ctx.coachPin?onLogin():setErr("Wrong PIN")}>ENTER COACH MODE</button>
-            <div className="tc xs mono dim"> — <span className="amber" style={{cursor:"pointer"}} onClick={()=>setChangingPin(true)}>change it</span></div>
+            <div className="tc xs mono dim"> — <span className="amber" style={{cursor:"pointer"}} onClick={()=>setChangingPin(true)}></span></div>
           </>
         ) : (
           <>
