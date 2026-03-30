@@ -201,7 +201,7 @@ function App() {
   const [players, setPlayers] = useState({});
   const [challenges, setChallenges] = useState([]);
   const [subs, setSubs] = useState({});
-  const [coachPin, setCoachPin] = useState("COACH99");
+  const [coachPin, setCoachPin] = useState("ACS1972");
   const [loading, setLoading] = useState(true);
 
   /* Live Firebase listeners */
@@ -247,6 +247,8 @@ function App() {
     "coach-home": <CoachHome ctx={ctx} />,
     "coach-create": <CoachCreate ctx={ctx} />,
     "coach-detail": <CoachDetail ctx={ctx} />,
+    "chat-board": <ChatBoard ctx={ctx} />,
+    "film-room": <FilmRoom ctx={ctx} />,
   };
 
   return (
@@ -268,6 +270,8 @@ function Header({ user, onLogout, onNav }) {
         </div>
         <div className="row gap-8">
           {!user?.isCoach && <button className="btn-g" onClick={() => onNav("leaderboard")}>🏆 Board</button>}
+          <button className="btn-g" onClick={() => onNav("chat-board")}>💬 Chat</button>
+          <button className="btn-g" onClick={() => onNav("film-room")}>🎬 Film</button>
           <button className="btn-g" onClick={onLogout}>Exit</button>
         </div>
       </div>
@@ -512,6 +516,7 @@ function ChallengeView({ ctx }) {
       </>}
       {phase==="answer"&&!isOpen&&<div className="alert a-err">This challenge is closed.</div>}
       {phase==="results"&&myResult&&<ResultsView c={c} sub={myResult} revealed={c.status==="closed"}/>}
+      {(phase==="results"||!isOpen)&&<ChallengeChat ctx={ctx} challengeId={cid} />}
     </div>
   );
 }
@@ -1010,6 +1015,359 @@ function CoachDetail({ ctx }) {
           </div>
         ))}
       </div>}
+    </div>
+  );
+}
+
+
+/* ══════════════════════════════════════
+   CHALLENGE CHAT (per-challenge thread)
+══════════════════════════════════════ */
+function ChallengeChat({ ctx, challengeId }) {
+  const { user, players } = ctx;
+  const [msgs, setMsgs] = useState([]);
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const bottomRef = React.useRef(null);
+
+  useEffect(() => {
+    const ref = db.ref(`challenge_chat/${challengeId}`);
+    ref.on('value', s => {
+      const v = s.val();
+      setMsgs(v ? Object.values(v).sort((a,b)=>a.ts-b.ts) : []);
+    });
+    return () => ref.off();
+  }, [challengeId]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({behavior:'smooth'}); }, [msgs]);
+
+  const post = async () => {
+    if (!text.trim()) return;
+    setPosting(true);
+    const msg = { username: user.username, displayName: players[user.username]?.displayName || user.username, text: text.trim(), ts: Date.now(), isCoach: !!user.isCoach };
+    await db.ref(`challenge_chat/${challengeId}`).push(msg);
+    setText("");
+    setPosting(false);
+  };
+
+  const del = async (key) => {
+    await db.ref(`challenge_chat/${challengeId}/${key}`).remove();
+  };
+
+  const msgEntries = msgs;
+
+  return (
+    <div className="mt20">
+      <div className="disp amber mb12" style={{fontSize:18}}>CHALLENGE DISCUSSION</div>
+      <div className="card" style={{padding:0,overflow:"hidden"}}>
+        <div style={{maxHeight:340,overflowY:"auto",padding:"12px 16px"}}>
+          {msgEntries.length===0&&<div className="tc dim" style={{padding:"24px 0",fontSize:13}}>No discussion yet — be the first to post.</div>}
+          {msgEntries.map((m,i)=>(
+            <div key={i} style={{marginBottom:14,display:"flex",gap:10,alignItems:"flex-start"}}>
+              <div style={{width:32,height:32,borderRadius:"50%",background:"var(--aqua-lt)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"var(--mono)",fontSize:11,color:"var(--aqua)",fontWeight:600}}>
+                {m.displayName?.slice(0,2).toUpperCase()}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                  <span style={{fontWeight:600,fontSize:13}}>{m.displayName}</span>
+                  {m.isCoach&&<span className="badge b-open" style={{fontSize:9}}>coach</span>}
+                  <span className="xs faint mono">{new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+                  {(user.isCoach||m.username===user.username)&&<span style={{marginLeft:"auto",cursor:"pointer",color:"var(--faint)",fontSize:11}} onClick={()=>del(Object.keys(db.ref(`challenge_chat/${challengeId}`))||i)}>✕</span>}
+                </div>
+                <div style={{fontSize:14,lineHeight:1.5,color:"var(--text)"}}>{m.text}</div>
+              </div>
+            </div>
+          ))}
+          <div ref={bottomRef}/>
+        </div>
+        <div style={{borderTop:"1px solid var(--border)",padding:"10px 12px",display:"flex",gap:8}}>
+          <input className="inp" style={{flex:1}} placeholder="Add to the discussion..." value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&post()}/>
+          <button className="btn btn-p btn-sm" onClick={post} disabled={posting||!text.trim()}>POST</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════
+   CHAT BOARD (team-wide)
+══════════════════════════════════════ */
+function ChatBoard({ ctx }) {
+  const { user, players, nav } = ctx;
+  const [msgs, setMsgs] = useState([]);
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const bottomRef = React.useRef(null);
+
+  useEffect(() => {
+    const ref = db.ref('team_chat');
+    ref.orderByChild('ts').limitToLast(100).on('value', s => {
+      const v = s.val();
+      setMsgs(v ? Object.values(v).sort((a,b)=>a.ts-b.ts) : []);
+    });
+    return () => ref.off();
+  }, []);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({behavior:'smooth'}); }, [msgs]);
+
+  const post = async () => {
+    if (!text.trim()) return;
+    setPosting(true);
+    const msg = { username: user.username, displayName: players[user.username]?.displayName || user.username, text: text.trim(), ts: Date.now(), isCoach: !!user.isCoach };
+    await db.ref('team_chat').push(msg);
+    setText("");
+    setPosting(false);
+  };
+
+  const del = async (key) => {
+    if (window.confirm("Delete this message?")) await db.ref(`team_chat/${key}`).remove();
+  };
+
+  return (
+    <div className="wrap page">
+      <div className="row-sb mb20">
+        <div className="disp amber" style={{fontSize:30}}>TEAM CHAT</div>
+        <button className="btn-g" onClick={()=>nav(user?.isCoach?"coach-home":"player-home")}>← Back</button>
+      </div>
+      <div className="card" style={{padding:0,overflow:"hidden"}}>
+        <div style={{height:500,overflowY:"auto",padding:"16px"}}>
+          {msgs.length===0&&<div className="tc dim" style={{padding:"48px 0"}}>No messages yet — get the conversation started!</div>}
+          {msgs.map((m,i)=>{
+            const isMe = m.username===user.username || (user.isCoach && m.isCoach);
+            return (
+              <div key={i} style={{marginBottom:16,display:"flex",flexDirection:isMe?"row-reverse":"row",gap:10,alignItems:"flex-start"}}>
+                <div style={{width:36,height:36,borderRadius:"50%",background:m.isCoach?"var(--aqua)":"var(--aqua-lt)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"var(--mono)",fontSize:12,color:m.isCoach?"#fff":"var(--aqua)",fontWeight:600}}>
+                  {m.displayName?.slice(0,2).toUpperCase()}
+                </div>
+                <div style={{maxWidth:"72%"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,justifyContent:isMe?"flex-end":"flex-start"}}>
+                    <span style={{fontWeight:600,fontSize:12,color:"var(--dim)"}}>{m.displayName}</span>
+                    {m.isCoach&&<span className="badge b-open" style={{fontSize:9}}>coach</span>}
+                    <span className="xs faint mono">{new Date(m.ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+                    {(user.isCoach||m.username===user.username)&&<span style={{cursor:"pointer",color:"var(--faint)",fontSize:10}} onClick={()=>del(Object.keys(msgs).find(k=>msgs[k]?.ts===m.ts)||i)}>✕</span>}
+                  </div>
+                  <div style={{background:isMe?"var(--aqua)":"var(--grey-lt)",color:isMe?"#fff":"var(--text)",borderRadius:isMe?"12px 12px 2px 12px":"12px 12px 12px 2px",padding:"10px 14px",fontSize:14,lineHeight:1.5}}>
+                    {m.text}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={bottomRef}/>
+        </div>
+        <div style={{borderTop:"2px solid var(--border)",padding:"12px 16px",display:"flex",gap:8,background:"var(--bg2)"}}>
+          <textarea className="txta" style={{flex:1,minHeight:44,resize:"none",fontSize:14}} placeholder="Message the team..." value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();post();}}} rows={1}/>
+          <button className="btn btn-p" style={{alignSelf:"flex-end",padding:"10px 18px",fontSize:15}} onClick={post} disabled={posting||!text.trim()}>SEND</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════
+   FILM ROOM (standalone with annotations)
+══════════════════════════════════════ */
+function FilmRoom({ ctx }) {
+  const { user, players, challenges, nav } = ctx;
+  const [selectedCid, setSelectedCid] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [noteText, setNoteText] = useState("");
+  const [currentTime, setCurrentTime] = useState(0);
+  const [drawing, setDrawing] = useState(false);
+  const [drawMode, setDrawMode] = useState(false);
+  const [paths, setPaths] = useState([]);
+  const [currentPath, setCurrentPath] = useState([]);
+  const [drawColor, setDrawColor] = useState("#0b7a6e");
+  const [pinnedTs, setPinnedTs] = useState([]);
+  const canvasRef = React.useRef(null);
+  const iframeRef = React.useRef(null);
+
+  const videoChallenges = challenges.filter(c=>c.youtubeUrl&&ytId(c.youtubeUrl));
+  const selected = videoChallenges.find(c=>c.id===selectedCid);
+  const vid = selected ? ytId(selected.youtubeUrl) : null;
+
+  useEffect(() => {
+    if (!selectedCid) return;
+    const ref = db.ref(`film_notes/${selectedCid}`);
+    ref.on('value', s => {
+      const v = s.val();
+      setNotes(v ? Object.entries(v).map(([k,n])=>({...n,key:k})).sort((a,b)=>a.ts-b.ts) : []);
+    });
+    const pref = db.ref(`film_pins/${selectedCid}`);
+    pref.on('value', s => {
+      const v = s.val();
+      setPinnedTs(v ? Object.values(v) : []);
+    });
+    setPaths([]); setCurrentPath([]);
+    return () => { ref.off(); pref.off(); };
+  }, [selectedCid]);
+
+  const addNote = async () => {
+    if (!noteText.trim()) return;
+    const note = { username: user.username, displayName: players[user.username]?.displayName||user.username, text: noteText.trim(), timestamp: currentTime, ts: Date.now(), isCoach: !!user.isCoach, pinned: false };
+    await db.ref(`film_notes/${selectedCid}`).push(note);
+    setNoteText("");
+  };
+
+  const deleteNote = async (key) => {
+    await db.ref(`film_notes/${selectedCid}/${key}`).remove();
+  };
+
+  const pinTimestamp = async () => {
+    if (!user.isCoach) return;
+    const pin = { time: currentTime, label: noteText.trim()||`Key moment at ${fmtTime(currentTime)}`, addedBy: user.username, ts: Date.now() };
+    await db.ref(`film_pins/${selectedCid}`).push(pin);
+    setNoteText("");
+  };
+
+  const fmtTime = secs => {
+    const m = Math.floor(secs/60), s = Math.floor(secs%60);
+    return `${m}:${s.toString().padStart(2,'0')}`;
+  };
+
+  // Canvas drawing
+  const startDraw = e => {
+    if (!drawMode) return;
+    const r = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX||e.touches?.[0]?.clientX) - r.left;
+    const y = (e.clientY||e.touches?.[0]?.clientY) - r.top;
+    setDrawing(true);
+    setCurrentPath([{x,y}]);
+  };
+
+  const draw = e => {
+    if (!drawing||!drawMode) return;
+    e.preventDefault();
+    const r = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX||e.touches?.[0]?.clientX) - r.left;
+    const y = (e.clientY||e.touches?.[0]?.clientY) - r.top;
+    setCurrentPath(p=>[...p,{x,y}]);
+    const ctx2 = canvasRef.current.getContext('2d');
+    ctx2.strokeStyle = drawColor;
+    ctx2.lineWidth = 3;
+    ctx2.lineCap = 'round';
+    ctx2.beginPath();
+    const prev = currentPath[currentPath.length-1]||{x,y};
+    ctx2.moveTo(prev.x, prev.y);
+    ctx2.lineTo(x, y);
+    ctx2.stroke();
+  };
+
+  const endDraw = () => {
+    if (!drawing) return;
+    setDrawing(false);
+    if (currentPath.length > 1) setPaths(p=>[...p, {path:currentPath, color:drawColor}]);
+    setCurrentPath([]);
+  };
+
+  const clearCanvas = () => {
+    const ctx2 = canvasRef.current?.getContext('2d');
+    if (ctx2) ctx2.clearRect(0,0,canvasRef.current.width,canvasRef.current.height);
+    setPaths([]); setCurrentPath([]);
+  };
+
+  if (!selectedCid) return (
+    <div className="wrap page">
+      <div className="row-sb mb20">
+        <div className="disp amber" style={{fontSize:30}}>FILM ROOM</div>
+        <button className="btn-g" onClick={()=>nav(user?.isCoach?"coach-home":"player-home")}>← Back</button>
+      </div>
+      {videoChallenges.length===0&&<div className="card tc" style={{padding:48}}><div style={{fontSize:48,marginBottom:14}}>🎬</div><p className="dim">No video challenges yet. Coach needs to post one first.</p></div>}
+      <div className="xs mono dim mb12" style={{letterSpacing:"0.1em",textTransform:"uppercase"}}>Select a clip to study</div>
+      {videoChallenges.map(c=>(
+        <div key={c.id} className="card card-hover mb12" onClick={()=>setSelectedCid(c.id)}>
+          <div className="row-sb">
+            <div>
+              <div className="bold mb4">{c.title}</div>
+              <div className="dim sm">{c.situation}</div>
+            </div>
+            <span style={{fontSize:28}}>🎬</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="wrap page">
+      <div className="row-sb mb16">
+        <div className="disp amber" style={{fontSize:22}}>{selected?.title}</div>
+        <button className="btn-g" onClick={()=>setSelectedCid(null)}>← All Clips</button>
+      </div>
+
+      {/* Video + draw overlay */}
+      <div style={{position:"relative",marginBottom:12}}>
+        <div style={{position:"relative",paddingBottom:"56.25%",height:0,overflow:"hidden",borderRadius:4,border:"1px solid var(--border)"}}>
+          <iframe ref={iframeRef} src={`https://www.youtube-nocookie.com/embed/${vid}?enablejsapi=1`} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}} allowFullScreen title="Film Room"/>
+        </div>
+        {drawMode&&<canvas ref={canvasRef} width={780} height={440}
+          style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",cursor:"crosshair",borderRadius:4,touchAction:"none"}}
+          onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+          onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}/>}
+      </div>
+
+      {/* Draw toolbar */}
+      <div className="card mb16" style={{padding:"10px 14px"}}>
+        <div className="row-w gap-8">
+          <button className={`qt-btn ${drawMode?"on":""}`} onClick={()=>setDrawMode(d=>!d)}>
+            {drawMode?"✏ Drawing ON":"✏ Draw Mode"}
+          </button>
+          {drawMode&&<>
+            {["#0b7a6e","#e84646","#f5a623","#ffffff","#0a0f0e"].map(col=>(
+              <div key={col} onClick={()=>setDrawColor(col)} style={{width:22,height:22,borderRadius:"50%",background:col,border:drawColor===col?"3px solid var(--aqua2)":"2px solid var(--border)",cursor:"pointer",flexShrink:0}}/>
+            ))}
+            <button className="qt-btn" onClick={clearCanvas}>🗑 Clear</button>
+          </>}
+          <div style={{flex:1}}/>
+          <div className="xs faint mono">Pause video first, then draw</div>
+        </div>
+      </div>
+
+      {/* Pinned key moments (coach) */}
+      {pinnedTs.length>0&&<div className="card mb16">
+        <div className="xs mono" style={{color:"var(--aqua)",marginBottom:8,letterSpacing:"0.1em",textTransform:"uppercase"}}>📌 Coach's Key Moments</div>
+        {pinnedTs.map((p,i)=>(
+          <div key={i} className="row gap-8 mb8">
+            <span className="badge b-open">{fmtTime(p.time)}</span>
+            <span style={{fontSize:13}}>{p.label}</span>
+          </div>
+        ))}
+      </div>}
+
+      {/* Add note */}
+      <div className="card mb16">
+        <div className="xs mono dim mb8" style={{letterSpacing:"0.1em",textTransform:"uppercase"}}>Drop a Note</div>
+        <div className="row-w gap-8 mb8">
+          <span className="badge b-open">{fmtTime(currentTime)}</span>
+          <span className="xs faint">Manually enter timestamp:</span>
+          <input className="inp" type="number" min={0} placeholder="seconds" style={{width:90}} onChange={e=>setCurrentTime(Number(e.target.value))}/>
+        </div>
+        <textarea className="txta" placeholder="What do you see? What would you do? Note your read..." value={noteText} onChange={e=>setNoteText(e.target.value)} rows={2}/>
+        <div className="row gap-8 mt8">
+          <button className="btn btn-p btn-sm" onClick={addNote} disabled={!noteText.trim()}>+ ADD NOTE</button>
+          {user.isCoach&&<button className="btn btn-s btn-sm" onClick={pinTimestamp} disabled={!noteText.trim()}>📌 PIN AS KEY MOMENT</button>}
+        </div>
+      </div>
+
+      {/* Notes feed */}
+      <div className="disp amber mb12" style={{fontSize:18}}>TEAM NOTES ({notes.length})</div>
+      {notes.length===0&&<div className="card tc" style={{padding:32}}><p className="dim sm">No notes yet — pause the video and drop your read.</p></div>}
+      {notes.map(n=>(
+        <div key={n.key} className="card mb10" style={{borderLeft:n.isCoach?"3px solid var(--aqua)":"3px solid var(--border)"}}>
+          <div className="row-sb mb6">
+            <div className="row gap-8">
+              <span className="badge b-open">{fmtTime(n.timestamp)}</span>
+              <span style={{fontWeight:600,fontSize:13}}>{n.displayName}</span>
+              {n.isCoach&&<span className="badge b-open" style={{fontSize:9}}>coach</span>}
+            </div>
+            <div className="row gap-8">
+              <span className="xs faint mono">{new Date(n.ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+              {(user.isCoach||n.username===user.username)&&<button className="btn-g" style={{padding:"2px 8px",fontSize:11}} onClick={()=>deleteNote(n.key)}>✕</button>}
+            </div>
+          </div>
+          <div style={{fontSize:14,lineHeight:1.5}}>{n.text}</div>
+        </div>
+      ))}
     </div>
   );
 }
